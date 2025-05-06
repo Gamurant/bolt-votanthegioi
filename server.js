@@ -36,7 +36,7 @@ app.post('/api/generate-story', async (req, res) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'qwen/qwen3-1.7b:free',
+        model: 'deepseek/deepseek-r1:free',
         messages: modifiedMessages,
       }),
     });
@@ -56,12 +56,38 @@ app.post('/api/generate-story', async (req, res) => {
     // Log raw OpenRouter response
     console.log('OpenRouter API raw response:', JSON.stringify(data, null, 2));
     // Transform to frontend format
-    const openRouterText = data.choices?.[0]?.message?.content || '';
+    const messageContent = data.choices?.[0]?.message?.content || '';
+    let parsedContent = {};
+    let text = messageContent;
+    let choices = [];
+    
+    try {
+      // Remove markdown code block if present
+      let cleaned = messageContent.trim();
+      if (cleaned.startsWith('```')) {
+        cleaned = cleaned.replace(/^```[a-zA-Z]*\n?/, '').replace(/```$/, '').trim();
+      }
+      
+      // Parse the JSON content from the message
+      parsedContent = JSON.parse(cleaned);
+      
+      if (typeof parsedContent === 'object' && parsedContent !== null) {
+        text = parsedContent.text || messageContent;
+        choices = Array.isArray(parsedContent.choices) ? parsedContent.choices : [];
+      }
+    } catch (e) {
+      // If parsing fails, fallback to raw text and empty choices
+      console.warn('Failed to parse message.content as JSON:', e);
+    }
+    
+    // Create the frontend response object
     const frontendResponse = {
       id: data.id,
-      text: openRouterText,
-      choices: [], // TODO: parse choices if needed
-      role: data.choices?.[0]?.message?.role || 'assistant'
+      text,
+      choices,
+      role: data.choices?.[0]?.message?.role || 'assistant',
+      // Include reasoning if available (for debugging)
+      reasoning: data.choices?.[0]?.message?.reasoning || null
     };
     console.log('Transformed response to frontend:', frontendResponse);
     res.json(frontendResponse);

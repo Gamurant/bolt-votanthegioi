@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Send, ArrowLeft, BookOpen, Home, Save, Sparkles } from 'lucide-react';
+import { Send, ArrowLeft, Home } from 'lucide-react';
 import { storyTemplates } from '../data/storyTemplates';
 import { generateStorySegment } from '../utils/storyGenerator';
 
@@ -12,6 +12,8 @@ interface StorySegment {
     text: string;
   }[];
   background?: string;
+  role?: 'user' | 'assistant';
+  reasoning?: string | null;
 }
 
 const StoryPage: React.FC = () => {
@@ -21,8 +23,10 @@ const StoryPage: React.FC = () => {
   const [userInput, setUserInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [isNewStory, setIsNewStory] = useState(id === 'new');
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  // We track the template ID but don't need to read it elsewhere
+  const [, setSelectedTemplate] = useState<string | null>(null);
   const [currentBackground, setCurrentBackground] = useState('bg-fantasy-bg');
+  const [showDebug, setShowDebug] = useState(false);
   const storyContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -78,7 +82,7 @@ const StoryPage: React.FC = () => {
     }
   };
 
-  const handleChoice = async (choiceId: string, choiceText: string) => {
+  const handleChoice = async (_choiceId: string, choiceText: string) => {
     setLoading(true);
     
     // Add user's choice as part of the story
@@ -238,21 +242,14 @@ const StoryPage: React.FC = () => {
           </button>
           
           <div className="flex space-x-3">
-            <button
-              className="flex items-center space-x-2 text-white hover:bg-white/10 px-3 py-2 rounded-lg transition"
-              onClick={() => {}} // Save functionality would go here
-            >
-              <Save size={20} />
-              <span className="hidden sm:inline">Lưu Truyện</span>
-            </button>
-            
-            <button
-              className="flex items-center space-x-2 text-white hover:bg-white/10 px-3 py-2 rounded-lg transition"
-              onClick={() => {}} // Reset functionality would go here
-            >
-              <Sparkles size={20} />
-              <span className="hidden sm:inline">Truyện Mới</span>
-            </button>
+            {process.env.NODE_ENV === 'development' && (
+              <button
+                className="flex items-center space-x-2 text-white hover:bg-white/10 px-3 py-2 rounded-lg transition"
+                onClick={() => setShowDebug(!showDebug)}
+              >
+                <span className="hidden sm:inline">{showDebug ? 'Hide Debug' : 'Show Debug'}</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -275,6 +272,12 @@ const StoryPage: React.FC = () => {
                 <div className="story-text bg-white/10 backdrop-blur-md p-4 rounded-lg text-white">
                   <p>{segment.text}</p>
                   {renderChoices(segment.choices)}
+                  {showDebug && segment.reasoning && (
+                    <div className="mt-4 p-3 bg-gray-800 rounded text-xs text-gray-300 font-mono">
+                      <div className="mb-1 text-gray-400 font-bold">Debug - LLM Reasoning:</div>
+                      <pre className="whitespace-pre-wrap">{segment.reasoning}</pre>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
