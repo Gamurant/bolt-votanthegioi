@@ -1,5 +1,4 @@
-import OpenAI from 'openai';
-import { storyTemplates } from '../data/storyTemplates';
+
 
 interface StorySegment {
   id: string;
@@ -11,15 +10,6 @@ interface StorySegment {
   background?: string;
   role?: 'user' | 'assistant';
 }
-
-const openai = new OpenAI({
-  apiKey: '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',
-  baseURL: 'https://openrouter.ai/api/v1',
-  defaultHeaders: {
-    'HTTP-Referer': 'https://thegioimotan.vn',
-    'X-Title': 'Thế Giới Vô Tận'
-  }
-});
 
 const systemPrompt = `Bạn là một người kể chuyện tương tác cho ứng dụng "Thế Giới Vô Tận". 
 Nhiệm vụ của bạn là tạo ra những câu chuyện hấp dẫn, sống động và phù hợp với văn hóa Việt Nam.
@@ -56,24 +46,30 @@ export const generateStorySegment = async (
       { role: 'user', content: userInput }
     ];
 
-    // Make the API call
-    const completion = await openai.chat.completions.create({
-      messages,
-      model: 'mistralai/mistral-7b-instruct',
-      temperature: 0.7,
-      max_tokens: 1000,
-      response_format: { type: 'json_object' }
+    // Call backend API
+    const res = await fetch('http://localhost:3001/api/generate-story', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages, model: 'mistralai/mistral-7b-instruct' }),
     });
+    if (!res.ok) throw new Error('Failed to generate story segment');
+    const completion = await res.json();
+    const response = completion.choices?.[0]?.message?.content;
 
-    const response = completion.choices[0]?.message?.content;
-    if (!response) {
-      throw new Error('No response from OpenRouter');
+    // Parse the response (expecting JSON)
+    let parsed;
+    try {
+      parsed = JSON.parse(response);
+    } catch (e) {
+      // If the response is an error object from backend, show its message
+      if (typeof response === 'object' && response && response.error) {
+        throw new Error(response.error.message || JSON.stringify(response.error));
+      }
+      throw new Error('Invalid response format');
     }
 
-    const parsed = JSON.parse(response);
-    
-    // Determine background based on story context
-    let background = undefined;
+    // Optionally extract background from the response
+    let background = parsed.background;
     if (currentStory.length > 0) {
       const lastSegment = currentStory[currentStory.length - 1];
       if (lastSegment.id.startsWith('kd-')) {
@@ -98,11 +94,20 @@ export const generateStorySegment = async (
     };
   } catch (error) {
     console.error('Error generating story segment:', error);
-    
+    // Use type guards to safely access error properties
+    if (typeof error === 'object' && error !== null && 'response' in error) {
+
+      console.error('Backend error response:', error.response);
+    }
+
     // Fallback response in case of error
+    let errorMsg = 'Xin lỗi, đã có lỗi xảy ra trong quá trình tạo câu chuyện. Vui lòng thử lại sau.';
+    if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as any).message === 'string') {
+      errorMsg = `Xin lỗi, đã có lỗi: ${(error as any).message}`;
+    }
     return {
       id: `response-${Date.now()}`,
-      text: 'Xin lỗi, đã có lỗi xảy ra trong quá trình tạo câu chuyện. Vui lòng thử lại sau.',
+      text: errorMsg,
       choices: [
         { id: 'retry', text: 'Thử lại' },
         { id: 'new', text: 'Bắt đầu câu chuyện mới' }

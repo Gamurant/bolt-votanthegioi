@@ -146,7 +146,7 @@ const StoryPage: React.FC = () => {
         {choices.map((choice, index) => (
           <button
             key={choice.id}
-            className="w-full text-left p-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors choice-appear"
+            className="w-full text-left p-3 bg-white text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors choice-appear"
             style={{ animationDelay: `${index * 0.1}s` }}
             onClick={() => handleChoice(choice.id, choice.text)}
             disabled={loading}
